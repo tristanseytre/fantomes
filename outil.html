@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Ton audit – Fantômes</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Fraunces:opsz,wght@9..144,800&display=swap" rel="stylesheet">
+<style>
+:root{--nuit:#14213D;--feu:#E4572E;--papier:#F5F1E6;--trait:#D9D3C2;--gris:#4A5468}
+*{box-sizing:border-box;margin:0}
+body{font-family:'DM Sans',system-ui,sans-serif;font-size:1.0625rem;line-height:1.5;color:var(--nuit);background:var(--papier)}
+main,footer{max-width:36rem;margin:0 auto;padding:1.25rem}
+h1,h2{font-family:Fraunces,Georgia,serif;font-weight:800;line-height:1.1}
+h1{font-size:2rem;margin:.6rem 0 .8rem}h2{font-size:1.35rem;margin-bottom:.6rem}
+.btn,.cta{display:block;width:100%;text-align:center;font:700 1.05rem 'DM Sans',sans-serif;padding:1rem;border-radius:.6rem;border:2px solid var(--nuit);background:transparent;color:var(--nuit);cursor:pointer;min-height:54px}
+.cta{background:var(--feu);border-color:var(--feu);color:#fff}
+.btn.small{display:inline-block;width:auto;min-height:44px;padding:.6rem 1rem;font-size:.95rem}
+.muted{color:var(--gris);font-size:.95rem}
+ol{padding-left:1.2rem;margin:.6rem 0 1.2rem}li{margin:.3rem 0}
+input[type=text],textarea{width:100%;font:inherit;padding:.75rem;border:2px solid var(--trait);border-radius:.5rem;background:#fff;color:var(--nuit)}
+textarea{min-height:15rem;margin:.6rem 0}
+.total{position:sticky;top:0;background:var(--nuit);color:#fff;padding:.9rem 1.25rem;margin:0 -1.25rem 1rem;z-index:2}
+.total b{font:800 2rem Fraunces,Georgia,serif;color:#fff;display:block}
+.total span{font-size:.9rem;opacity:.85}
+.card{border:2px solid var(--nuit);border-radius:.7rem;padding:1rem;margin:.8rem 0;background:#fff}
+.card .top{display:flex;justify-content:space-between;gap:.8rem;align-items:baseline}
+.card .name{font-weight:700;font-size:1.1rem}
+.card .an{font:800 1.3rem Fraunces,Georgia,serif;color:var(--feu);white-space:nowrap}
+.row{display:flex;gap:.6rem;align-items:center;margin-top:.7rem;flex-wrap:wrap}
+label.chk{display:flex;gap:.6rem;align-items:center;min-height:44px;font-weight:500}
+input[type=checkbox]{width:24px;height:24px;accent-color:var(--feu)}
+.vide{border:2px dashed var(--nuit);border-radius:.7rem;padding:1.2rem;background:#fff}
+.err{color:#9b2c0d;font-weight:700;margin-top:.8rem}
+.ghost{width:48px;height:48px;display:block}
+footer a{color:var(--nuit)}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <svg class="ghost" viewBox="0 0 40 40" aria-hidden="true"><path d="M6 38V18a14 14 0 0 1 28 0v20l-5-4-5 4-4-4-4 4-5-4z" fill="#14213D"/><circle cx="15" cy="19" r="2.5" fill="#F5F1E6"/><circle cx="25" cy="19" r="2.5" fill="#F5F1E6"/></svg>
+  <h1>Ton audit Fantômes</h1>
+
+  <section id="accueil" class="vide">
+    <h2>Première chasse aux fantômes</h2>
+    <ol>
+      <li>Dans l'appli de ta banque, exporte tes opérations en <b>CSV</b>, sur 3 mois minimum.</li>
+      <li>Choisis le fichier ci-dessous.</li>
+      <li>Coche les abonnements dont tu ne te sers plus.</li>
+    </ol>
+    <p class="muted" style="margin-bottom:1rem">Ton relevé reste dans ton navigateur : il n'est ni envoyé ni stocké.</p>
+    <input id="fichier" type="file" accept=".csv,.txt,text/csv" hidden>
+    <button class="cta" id="choisir">Choisir mon relevé CSV</button>
+    <button class="btn" id="demo" style="margin-top:.7rem">Voir un exemple</button>
+    <p class="err" id="err" hidden></p>
+  </section>
+
+  <section id="resultat" hidden>
+    <div class="total" aria-live="polite"><span>Économisé sur l'année</span><b id="total">0 €</b><span id="detail"></span></div>
+    <p class="muted">Classés par coût annuel. Coche seulement ce que tu veux vraiment résilier : un loyer ou un crédit peuvent apparaître ici.</p>
+    <div style="margin:1rem 0"><label for="nom" class="muted">Ton nom (pour les lettres)</label><input type="text" id="nom" autocomplete="name">
+    <label for="adr" class="muted" style="display:block;margin-top:.6rem">Ton adresse</label><input type="text" id="adr" autocomplete="street-address"></div>
+    <div id="liste"></div>
+    <button class="btn" id="autre" style="margin-top:1.2rem">Analyser un autre relevé</button>
+  </section>
+</main>
+<footer><a href="/">Accueil</a> · <a href="/legal.html#confidentialite">Confidentialité</a></footer>
+
+<script>
+/*LOGIC*/
+const STOP=new Set('PRLV SEPA PRELEVEMENT PRELEVEMENTS CB CARTE PAIEMENT ACHAT PAR DE DU DES LA LE FACTURE REF ECH ECHEANCE MANDAT VIR VIREMENT COTISATION ABONNEMENT ET EN AU'.split(' '));
+function split(l,d){const o=[];let c='',q=false;for(const ch of l){if(ch=='"')q=!q;else if(ch==d&&!q){o.push(c);c=''}else c+=ch}o.push(c);return o.map(s=>s.trim())}
+function num(s){if(s==null)return NaN;return parseFloat(String(s).replace(/[\s\u00a0€]/g,'').replace(/\.(?=\d{3}\b)/g,'').replace(',','.'))}
+function pdate(s){s=String(s);let m=s.match(/(\d{4})-(\d{2})-(\d{2})/);if(m)return new Date(+m[1],+m[2]-1,+m[3]);m=s.match(/(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})/);if(m){let y=+m[3];if(y<100)y+=2000;return new Date(y,+m[2]-1,+m[1])}return null}
+function parse(text){
+  const lines=text.replace(/^\uFEFF/,'').split(/\r?\n/).filter(l=>l.trim());
+  const samp=lines.slice(0,15).join('\n');
+  const d=[';','\t',','].map(c=>[c,samp.split(c).length]).sort((a,b)=>b[1]-a[1])[0][0];
+  const rows=lines.map(l=>split(l,d));
+  const hi=rows.findIndex(r=>r.some(c=>/^date/i.test(c))&&r.some(c=>/montant|amount|d[ée]bit/i.test(c)));
+  const H=hi>=0?rows[hi]:null, ix=re=>H?H.findIndex(c=>re.test(c)):-1;
+  const iD=ix(/^date/i),iA=ix(/montant|amount/i),iB=ix(/d[ée]bit/i),iL=ix(/libell|description|d[ée]tail|intitul|objet|label|nom/i);
+  const tx=[];
+  for(const r of rows.slice(hi+1)){
+    let date,amt,lab;
+    if(H){date=pdate(r[iD]);lab=r[iL>=0?iL:1]||'';
+      if(iB>=0){const v=num(r[iB]);amt=isFinite(v)&&v!==0?-Math.abs(v):NaN}else amt=num(r[iA])}
+    else{date=null;for(const c of r){const p=pdate(c);if(p){date=p;break}}
+      const n=r.filter(c=>/^-?[\d\s.,\u00a0]+€?$/.test(c)&&!/[\/]/.test(c));amt=n.length?num(n[n.length-1]):NaN;
+      lab=r.filter(c=>!/^-?[\d\s.,\u00a0\/\-€]+$/.test(c)).sort((a,b)=>b.length-a.length)[0]||''}
+    if(date&&lab&&isFinite(amt)&&amt<0)tx.push({date,lab,amt});
+  }
+  return tx;
+}
+function key(l){const t=l.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9 ]/g,' ').split(/\s+/).filter(w=>w.length>1&&!/\d/.test(w)&&!STOP.has(w));return(t.slice(0,3).join(' ')||l.toUpperCase()).trim()}
+function med(a){const s=[...a].sort((x,y)=>x-y),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2}
+function titre(k){return k.toLowerCase().replace(/(^|\s)\S/g,c=>c.toUpperCase())}
+function analyse(tx){
+  const g={};tx.forEach(t=>{(g[key(t.lab)]=g[key(t.lab)]||[]).push(t)});
+  const out=[];
+  for(const k in g){
+    const a=g[k];if(a.length<2)continue;
+    const m=med(a.map(t=>-t.amt));
+    const s=a.filter(t=>Math.abs(-t.amt-m)<=.2*m).sort((x,y)=>x.date-y.date);if(s.length<2||s.length<.7*a.length)continue;
+    const iv=[];for(let i=1;i<s.length;i++)iv.push((s[i].date-s[i-1].date)/864e5);
+    const mo=iv.filter(x=>x>=24&&x<=38).length,an=iv.filter(x=>x>=350&&x<=380).length;
+    const per=mo>=1&&mo/iv.length>=.6?'mois':an>=1&&an/iv.length>=.6?'an':null;if(!per)continue;
+    const amt=med(s.map(t=>-t.amt));
+    out.push({key:k,name:titre(k),amt,per,annual:per==='mois'?amt*12:amt});
+  }
+  return out.sort((a,b)=>b.annual-a.annual);
+}
+function lettre(it,nom,adr){
+  const ce=euro(it.amt)+' par '+it.per;
+  return `${nom||'[Ton nom]'}\n${adr||'[Ton adresse]'}\n\nObjet : Résiliation de mon abonnement ${it.name}\n\nMadame, Monsieur,\n\nPar la présente, je vous informe de ma décision de résilier mon abonnement ${it.name}, prélevé ${ce}. Cette résiliation prend effet à la prochaine échéance, ou à défaut dans les meilleurs délais.\n\nMerci de me confirmer par écrit la prise en compte de ma demande ainsi que la date de fin effective, et de cesser tout prélèvement à compter de cette date.\n\nJe vous prie d'agréer, Madame, Monsieur, mes salutations distinguées.\n\n${nom||'[Ton nom]'}`;
+}
+function euro(x){return new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR'}).format(x)}
+/*UI*/
+const $=id=>document.getElementById(id);
+let items=[],coches=new Set();
+function el(t,p,...k){const e=document.createElement(t);Object.assign(e,p||{});k.forEach(c=>e.append(c));return e}
+function total(){const s=items.filter(i=>coches.has(i.key)).reduce((a,i)=>a+i.annual,0);
+  $('total').textContent=euro(s);const t=items.reduce((a,i)=>a+i.annual,0);
+  $('detail').textContent=items.length+' abonnement'+(items.length>1?'s':'')+' repéré'+(items.length>1?'s':'')+' pour '+euro(t)+' par an'}
+function rafraichirLettres(){document.querySelectorAll('textarea[data-k]').forEach(t=>{const it=items.find(i=>i.key===t.dataset.k);t.value=lettre(it,$('nom').value,$('adr').value)})}
+function afficher(){
+  const L=$('liste');L.textContent='';
+  items.forEach(it=>{
+    const cb=el('input',{type:'checkbox',checked:coches.has(it.key)});
+    cb.onchange=()=>{cb.checked?coches.add(it.key):coches.delete(it.key);total()};
+    const zone=el('div',{hidden:true});
+    const bt=el('button',{className:'btn small',textContent:'Voir la lettre'});
+    bt.onclick=()=>{if(!zone.firstChild){const ta=el('textarea',{value:lettre(it,$('nom').value,$('adr').value)});ta.dataset.k=it.key;
+      const cp=el('button',{className:'cta',textContent:'Copier la lettre'});
+      cp.onclick=async()=>{try{await navigator.clipboard.writeText(ta.value)}catch(e){ta.select();document.execCommand('copy')}cp.textContent='Lettre copiée';setTimeout(()=>cp.textContent='Copier la lettre',1800)};
+      zone.append(ta,cp)}zone.hidden=!zone.hidden;bt.textContent=zone.hidden?'Voir la lettre':'Masquer la lettre'};
+    L.append(el('div',{className:'card'},
+      el('div',{className:'top'},el('div',{},el('div',{className:'name',textContent:it.name}),el('div',{className:'muted',textContent:euro(it.amt)+' par '+it.per})),el('div',{className:'an',textContent:euro(it.annual)+'/an'})),
+      el('div',{className:'row'},el('label',{className:'chk'},cb,'Je résilie'),bt),zone));
+  });
+  total();
+}
+function analyserTexte(txt){
+  const e=$('err');e.hidden=true;
+  let tx;try{tx=parse(txt)}catch(x){tx=[]}
+  if(!tx.length){e.textContent="Je n'ai pas reconnu ce fichier. Exporte-le en CSV depuis ta banque (colonnes date, libellé, montant).";e.hidden=false;return}
+  items=analyse(tx);coches=new Set();
+  if(!items.length){e.textContent="Aucun prélèvement régulier trouvé. Essaie avec un relevé d'au moins 3 mois.";e.hidden=false;return}
+  $('accueil').hidden=true;$('resultat').hidden=false;afficher();window.scrollTo(0,0);
+}
+$('choisir').onclick=()=>$('fichier').click();
+$('fichier').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>analyserTexte(String(r.result));r.readAsText(f,'utf-8')};
+$('demo').onclick=()=>{const r=['Date;Libellé;Montant'];[3,4,5,6].forEach((m,i)=>{const M='0'+m;
+  r.push(`05/${M}/2026;PRLV SEPA NETFLIX.COM 123;-13,49`,`12/${M}/2026;CB SPOTIFY AB 4587;-10,99`,`18/${M}/2026;PRLV BASIC-FIT SAS REF88;-29,99`,
+  `03/${M}/2026;CB CARREFOUR CITY 5541;-${23+i*3},50`,`11/${M}/2026;CB CARREFOUR CITY 5541;-${41-i*5},20`,`24/${M}/2026;CB CARREFOUR CITY 5541;-${12+i*2},80`)});
+  analyserTexte(r.join('\n'))};
+$('autre').onclick=()=>{$('resultat').hidden=true;$('accueil').hidden=false;$('fichier').value=''};
+$('nom').oninput=$('adr').oninput=rafraichirLettres;
+</script>
+</body>
+</html>
