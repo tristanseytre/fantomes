@@ -78,9 +78,9 @@ function parse(text){
   const samp=lines.slice(0,15).join('\n');
   const d=[';','\t',','].map(c=>[c,samp.split(c).length]).sort((a,b)=>b[1]-a[1])[0][0];
   const rows=lines.map(l=>split(l,d));
-  const hi=rows.findIndex(r=>r.some(c=>/^date/i.test(c))&&r.some(c=>/montant|amount|d[ée]bit/i.test(c)));
+  const hi=rows.findIndex(r=>r.some(c=>/date/i.test(c))&&r.some(c=>/montant|amount|d[ée]bit/i.test(c)));
   const H=hi>=0?rows[hi]:null, ix=re=>H?H.findIndex(c=>re.test(c)):-1;
-  const iD=ix(/^date/i),iA=ix(/montant|amount/i),iB=ix(/d[ée]bit/i),iL=ix(/libell|description|d[ée]tail|intitul|objet|label|nom/i);
+  const iD=ix(/date/i),iA=ix(/montant|amount/i),iB=ix(/d[ée]bit/i),iL=ix(/libell|description|d[ée]tail|intitul|objet|label|nom/i);
   const tx=[];
   for(const r of rows.slice(hi+1)){
     let date,amt,lab;
